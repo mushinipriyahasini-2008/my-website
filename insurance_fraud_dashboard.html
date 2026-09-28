@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Insurance Claims & Policy Fraud Detection System</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+/* ===== THEME TOKENS (blue/white professional palette) ===== */
+:root{--blue:#1d4ed8;--navy:#0f2a5c;--sky:#e8f0fe;--bg:#f4f7fc;--card:#fff;--text:#1e293b;--muted:#64748b;--line:#e2e8f0;
+--low:#16a34a;--med:#d97706;--high:#dc2626;--r:14px;--sh:0 4px 18px rgba(15,42,92,.08)}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,Arial,sans-serif;background:var(--bg);color:var(--text)}
+button{font:inherit;cursor:pointer;border:0}
+/* ===== WELCOME SCREEN ===== */
+#welcome{position:fixed;inset:0;z-index:100;background:linear-gradient(135deg,#0f2a5c,#1d4ed8);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px;transition:opacity .6s,transform .6s}
+#welcome.hide{opacity:0;transform:scale(1.05);pointer-events:none}
+.shield{font-size:84px;animation:float 3s ease-in-out infinite;text-shadow:0 10px 30px rgba(0,0,0,.3)}
+@keyframes float{50%{transform:translateY(-14px)}}
+#welcome h1{font-size:clamp(24px,4vw,40px);margin:18px 0 8px;animation:fade 1s both}
+#welcome p{opacity:.85;margin-bottom:28px;animation:fade 1.4s both}
+@keyframes fade{from{opacity:0;transform:translateY(20px)}}
+.btn{background:var(--blue);color:#fff;padding:11px 22px;border-radius:10px;font-weight:600;transition:.2s}
+.btn:hover{background:var(--navy);transform:translateY(-2px);box-shadow:0 6px 14px rgba(29,78,216,.3)}
+#welcome .btn{background:#fff;color:var(--blue);font-size:18px;padding:14px 34px;border-radius:40px;animation:pulse 2s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(255,255,255,.6)}100%{box-shadow:0 0 0 22px rgba(255,255,255,0)}}
+/* ===== LAYOUT: top bar + sidebar ===== */
+#app{display:none}
+.top{position:fixed;top:0;left:0;right:0;height:60px;background:#fff;box-shadow:var(--sh);display:flex;align-items:center;justify-content:space-between;padding:0 20px;z-index:50}
+.top b{color:var(--navy);font-size:17px}.top i{color:var(--blue);margin-right:8px}
+.menu{display:none;background:none;font-size:20px;color:var(--navy)}
+.side{position:fixed;top:60px;bottom:0;left:0;width:230px;background:var(--navy);padding:16px 10px;transition:.3s;z-index:40}
+.side a{display:flex;gap:12px;align-items:center;color:#c7d6f5;padding:12px 14px;border-radius:10px;text-decoration:none;margin-bottom:4px;cursor:pointer;transition:.2s}
+.side a:hover,.side a.on{background:var(--blue);color:#fff;transform:translateX(4px)}
+main{margin:60px 0 0 230px;padding:24px}
+section{display:none;animation:fade .5s both}section.on{display:block}
+h2{color:var(--navy);margin-bottom:16px;font-size:22px}
+.card{background:var(--card);border-radius:var(--r);box-shadow:var(--sh);padding:18px;margin-bottom:20px}
+.grid{display:grid;gap:16px}.g3{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}.g2{grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+/* ===== STAT CARDS ===== */
+.stat{display:flex;align-items:center;gap:14px;transition:.25s}
+.stat:hover{transform:translateY(-5px)}
+.stat .ic{width:52px;height:52px;border-radius:14px;display:grid;place-items:center;font-size:22px;color:#fff}
+.stat h3{font-size:26px;color:var(--navy)}.stat small{color:var(--muted)}
+/* ===== FORMS ===== */
+form{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+label{font-size:13px;font-weight:600;color:var(--muted);display:block;margin-bottom:5px}
+input,select{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:9px;font:inherit;background:#fff}
+input:focus,select:focus{outline:2px solid var(--blue);border-color:transparent}
+form .btn{grid-column:1/-1}
+/* ===== TABLES & BADGES ===== */
+.tw{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:14px;min-width:640px}
+th{background:var(--sky);color:var(--navy);text-align:left;padding:11px}
+td{padding:11px;border-bottom:1px solid var(--line)}
+tbody tr{transition:.2s}tbody tr:hover{background:#f0f6ff}
+.badge{padding:4px 10px;border-radius:20px;font-size:12px;font-weight:700;white-space:nowrap}
+.Low{background:#dcfce7;color:var(--low)}.Medium{background:#fef3c7;color:var(--med)}.High{background:#fee2e2;color:var(--high)}
+.st{background:var(--sky);color:var(--blue)}
+.sm{padding:5px 10px;font-size:12px;border-radius:7px;margin-right:3px;color:#fff}
+.v{background:#64748b}.r{background:var(--blue)}.m{background:var(--low)}.d{background:var(--high)}.sm:hover{opacity:.85}
+.filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px}
+.note{background:#fff8e1;border-left:4px solid var(--med);padding:10px 14px;border-radius:8px;font-size:13px;margin-top:14px}
+/* ===== RESULT PANEL ===== */
+.gauge{font-size:56px;font-weight:800;text-align:center}
+.bar{height:12px;background:var(--line);border-radius:8px;overflow:hidden;margin:8px 0 16px}
+.bar div{height:100%;transition:width 1s}
+/* ===== ARCHITECTURE ===== */
+.arch{display:grid;gap:12px}
+.node{display:flex;gap:14px;align-items:center;padding:14px;border-radius:12px;background:var(--sky);border-left:5px solid var(--blue);transition:.25s}
+.node:hover{transform:scale(1.02)}.node i{font-size:26px;color:var(--blue);width:36px;text-align:center}
+.arrow{text-align:center;color:var(--blue)}
+footer{text-align:center;color:var(--muted);font-size:13px;padding:18px 0 4px}
+/* ===== MODAL ===== */
+#modal{position:fixed;inset:0;background:rgba(15,42,92,.5);display:none;place-items:center;z-index:90;padding:16px}
+#modal .card{max-width:440px;width:100%;margin:0}
+/* ===== RESPONSIVE ===== */
+@media(max-width:820px){.menu{display:block}.side{transform:translateX(-100%)}.side.open{transform:none}main{margin-left:0;padding:14px}}
+</style>
+</head>
+<body>
+
+<!-- ===== 1. WELCOME SCREEN ===== -->
+<div id="welcome">
+  <div class="shield"><i class="fa-solid fa-shield-halved"></i></div>
+  <h1>Welcome to Insurance Claims Fraud Detection System</h1>
+  <p>Connected policyholder, policy and claim data — faster, smarter reviews.</p>
+  <button class="btn" onclick="start()">Get Started <i class="fa-solid fa-arrow-right"></i></button>
+</div>
+
+<div id="app">
+<div class="top">
+  <div><button class="menu" onclick="document.querySelector('.side').classList.toggle('open')"><i class="fa-solid fa-bars"></i></button>
+  <b><i class="fa-solid fa-shield-halved"></i>Insurance Claims &amp; Policy Fraud Detection System</b></div>
+  <span style="color:var(--muted);font-size:13px"><i class="fa-solid fa-user-tie"></i> Claims Officer</span>
+</div>
+
+<!-- Sidebar navigation -->
+<nav class="side">
+  <a class="on" data-s="dash"><i class="fa-solid fa-chart-pie"></i>Dashboard</a>
+  <a data-s="submit"><i class="fa-solid fa-file-circle-plus"></i>Submit Claim</a>
+  <a data-s="analysis"><i class="fa-solid fa-magnifying-glass-chart"></i>Claim Analysis</a>
+  <a data-s="connected"><i class="fa-solid fa-link"></i>Connected Records</a>
+  <a data-s="history"><i class="fa-solid fa-clock-rotate-left"></i>Claim History</a>
+  <a data-s="queue"><i class="fa-solid fa-list-check"></i>Review Queue</a>
+  <a data-s="tech"><i class="fa-solid fa-diagram-project"></i>Architecture</a>
+</nav>
+
+<main>
+<!-- ===== 2. DASHBOARD + 9. CHARTS ===== -->
+<section id="dash" class="on">
+  <h2>Dashboard</h2>
+  <div class="grid g3" id="stats"></div><br>
+  <div class="grid g2">
+    <div class="card"><h3>Claims by Risk Level</h3><canvas id="c1"></canvas></div>
+    <div class="card"><h3>Claims by Status</h3><canvas id="c2"></canvas></div>
+  </div>
+  <div class="card"><h3>Claim Amount Analysis</h3><canvas id="c3" height="90"></canvas></div>
+</section>
+
+<!-- ===== 3. SUBMIT NEW CLAIM ===== -->
+<section id="submit">
+  <h2>Submit New Claim</h2>
+  <div class="card">
+  <form id="form">
+    <div><label>Policyholder ID</label><input id="fH" placeholder="PH1001" oninput="fillHolder()" required></div>
+    <div><label>Customer Name</label><input id="fN" required></div>
+    <div><label>Policy Number</label><input id="fP" placeholder="POL-5001" required></div>
+    <div><label>Claim ID</label><input id="fC" placeholder="CLM-9001" required></div>
+    <div><label>Claim Type</label><select id="fT"><option>Auto Accident</option><option>Health</option><option>Theft</option><option>Fire Damage</option><option>Property Damage</option></select></div>
+    <div><label>Claim Amount (₹)</label><input id="fA" type="number" min="1" required></div>
+    <div><label>Claim Date</label><input id="fD" type="date" required></div>
+    <div><label>Policy Start Date</label><input id="fS" type="date" required></div>
+    <div><label>Previous Claims Count</label><input id="fPC" type="number" min="0" value="0" required></div>
+    <div><label>Previous Claim Amount (₹)</label><input id="fPA" type="number" min="0" value="0" required></div>
+    <button class="btn" type="submit" id="fBtn"><i class="fa-solid fa-bolt"></i> Submit &amp; Analyze Claim</button>
+    <button class="btn" type="button" id="fCancel" style="display:none;background:#64748b" onclick="cancelEdit()">Cancel Edit</button>
+    <p class="note" style="grid-column:1/-1;margin:0"><i class="fa-solid fa-floppy-disk"></i> Enter your real records here. Data is saved automatically in this browser. Known Policyholder IDs auto-fill name and previous-claim totals. Use the <b>Edit</b> button in Connected Records to change a saved claim.</p>
+  </form></div>
+</section>
+
+<!-- ===== 4. CLAIM ANALYSIS ===== -->
+<section id="analysis">
+  <h2>Claim Analysis</h2>
+  <div class="card" id="result"><p style="color:var(--muted)">Submit a claim to see its analysis here.</p></div>
+</section>
+
+<!-- ===== 5 + 8. CONNECTED TABLE WITH SEARCH & FILTER ===== -->
+<section id="connected">
+  <h2>Connected Policy &amp; Claim Information</h2>
+  <div class="card">
+    <div class="filters">
+      <input id="sH" placeholder="Search Policyholder ID" oninput="renderTable()">
+      <input id="sP" placeholder="Search Policy Number" oninput="renderTable()">
+      <input id="sC" placeholder="Search Claim ID" oninput="renderTable()">
+      <select id="fR" onchange="renderTable()"><option value="">All Risk Levels</option><option>Low</option><option>Medium</option><option>High</option></select>
+      <select id="fSt" onchange="renderTable()"><option value="">All Statuses</option><option>Pending Review</option><option>Under Investigation</option><option>Reviewed</option></select>
+    </div>
+    <!-- Data tools: export, clear demo data to start with real records, restore demo -->
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+      <button class="btn" onclick="exportCSV()"><i class="fa-solid fa-file-csv"></i> Export CSV</button>
+      <button class="btn" style="background:#dc2626" onclick="clearAll()"><i class="fa-solid fa-eraser"></i> Clear Demo Data</button>
+      <button class="btn" style="background:#64748b" onclick="restoreDemo()"><i class="fa-solid fa-rotate-left"></i> Restore Demo Data</button>
+    </div>
+    <div class="tw"><table><thead><tr><th>Policyholder</th><th>Policy Number</th><th>Claim ID</th><th>Claim Amount</th><th>Previous Claims</th><th>Risk Score</th><th>Status</th><th>Actions</th></tr></thead><tbody id="tbl"></tbody></table></div>
+    <p style="font-size:12px;color:var(--muted);margin-top:8px">Tip: click a row to open that policyholder's claim history.</p>
+  </div>
+</section>
+
+<!-- ===== 6. PREVIOUS CLAIM HISTORY ===== -->
+<section id="history">
+  <h2>Previous Claim History</h2>
+  <div class="card"><label>Select Policyholder</label><select id="hSel" onchange="renderHistory()"></select></div>
+  <!-- Add a real previous claim to the selected policyholder's history -->
+  <div class="card"><h3 style="margin-bottom:10px">Add Previous Claim</h3>
+    <div class="filters">
+      <input id="hD" type="date" title="Claim date">
+      <select id="hT"><option>Auto Accident</option><option>Health</option><option>Theft</option><option>Fire Damage</option><option>Property Damage</option></select>
+      <input id="hA" type="number" min="1" placeholder="Amount (₹)">
+      <input id="hS" type="number" min="0" max="100" placeholder="Risk score (optional)">
+      <button class="btn" onclick="addHist()"><i class="fa-solid fa-plus"></i> Add</button>
+    </div></div>
+  <div id="hOut"></div>
+</section>
+
+<!-- ===== 7. REVIEW QUEUE ===== -->
+<section id="queue">
+  <h2>Review Queue <small style="font-size:13px;color:var(--muted)">(High → Medium → Low)</small></h2>
+  <div class="card tw"><table><thead><tr><th>Claim ID</th><th>Policyholder</th><th>Amount</th><th>Score</th><th>Risk Level</th><th>Priority</th><th>Action</th></tr></thead><tbody id="qTbl"></tbody></table></div>
+</section>
+
+<!-- ===== 10. TECHNOLOGY REPRESENTATION ===== -->
+<section id="tech">
+  <h2>System Architecture</h2>
+  <div class="card arch">
+    <div class="node"><i class="fa-brands fa-java"></i><div><b>Java</b><br>Records claims and connects claims with policies</div></div><div class="arrow"><i class="fa-solid fa-arrow-down"></i></div>
+    <div class="node"><i class="fa-solid fa-database"></i><div><b>SQL</b><br>Joins Policyholder + Policy + Claim information</div></div><div class="arrow"><i class="fa-solid fa-arrow-down"></i></div>
+    <div class="node"><i class="fa-brands fa-python"></i><div><b>Python</b><br>Analyzes claim amount and previous claim history and generates the fraud risk score</div></div><div class="arrow"><i class="fa-solid fa-arrow-down"></i></div>
+    <div class="node"><i class="fa-solid fa-server"></i><div><b>Database</b><br>Stores policy, policyholder, claim and fraud-score information</div></div><div class="arrow"><i class="fa-solid fa-arrow-down"></i></div>
+    <div class="node"><i class="fa-solid fa-ranking-star"></i><div><b>Java Review Queue</b><br>Arranges claims according to risk score</div></div>
+  </div>
+</section>
+
+<footer>Insurance Claims Fraud Detection System – Academic Project Demo</footer>
+</main>
+</div>
+
+<!-- View-claim modal -->
+<div id="modal" onclick="if(event.target===this)this.style.display='none'"><div class="card" id="mBody"></div></div>
+
+<script>
+/* ===== SAMPLE DATA (no backend needed) =====
+   holders: previous-claim history per policyholder (d=date, t=type, a=amount, s=risk score) */
+let holders = {
+  PH1001:{name:'Ravi Kumar',   h:[{d:'2024-03-12',t:'Health',a:12000,s:12},{d:'2025-01-20',t:'Auto Accident',a:18000,s:20}]},
+  PH1002:{name:'Anita Sharma', h:[]},
+  PH1003:{name:'Suresh Reddy', h:[{d:'2023-07-05',t:'Theft',a:40000,s:48},{d:'2024-02-18',t:'Fire Damage',a:65000,s:66},{d:'2025-05-09',t:'Theft',a:52000,s:58}]},
+  PH1004:{name:'Meena Iyer',   h:[{d:'2025-02-14',t:'Health',a:9000,s:8}]},
+  PH1005:{name:'Vikram Singh', h:[{d:'2024-09-01',t:'Auto Accident',a:30000,s:35},{d:'2025-06-11',t:'Property Damage',a:45000,s:52}]},
+  PH1006:{name:'Priya Nair',   h:[]}
+};
+/* claims: prev count/amount are derived from the holder history */
+let claims = [
+  {id:'CLM-9001',ph:'PH1001',pol:'POL-5001',type:'Health',amount:15000,date:'2026-08-10',start:'2022-01-15',status:'Pending Review'},
+  {id:'CLM-9002',ph:'PH1002',pol:'POL-5002',type:'Theft',amount:140000,date:'2026-09-05',start:'2026-08-20',status:'Pending Review'},
+  {id:'CLM-9003',ph:'PH1003',pol:'POL-5003',type:'Fire Damage',amount:120000,date:'2026-09-15',start:'2023-05-01',status:'Under Investigation'},
+  {id:'CLM-9004',ph:'PH1004',pol:'POL-5004',type:'Health',amount:8000,date:'2026-07-22',start:'2021-06-10',status:'Reviewed'},
+  {id:'CLM-9005',ph:'PH1005',pol:'POL-5005',type:'Auto Accident',amount:60000,date:'2026-09-01',start:'2024-08-15',status:'Pending Review'},
+  {id:'CLM-9006',ph:'PH1006',pol:'POL-5006',type:'Property Damage',amount:25000,date:'2026-08-30',start:'2025-01-01',status:'Pending Review'},
+  {id:'CLM-9007',ph:'PH1001',pol:'POL-5007',type:'Auto Accident',amount:22000,date:'2026-09-20',start:'2020-03-03',status:'Reviewed'}
+].map(c=>{const h=holders[c.ph].h;c.name=holders[c.ph].name;c.pc=h.length;c.pa=h.reduce((s,x)=>s+x.a,0);c.score=score(c);return c});
+
+/* ===== PERSISTENCE: real data you enter is saved in this browser (localStorage) ===== */
+const KEY='icfds_v1', DEMO=JSON.stringify({holders,claims});
+function save(){try{localStorage.setItem(KEY,JSON.stringify({holders,claims}))}catch(e){}}
+try{const s=JSON.parse(localStorage.getItem(KEY));if(s&&s.holders&&s.claims){holders=s.holders;claims=s.claims}}catch(e){}
+
+/* ===== RULE-BASED RISK SCORE (demo only, NOT a real fraud determination) ===== */
+function score(c){
+  let s=0;
+  const days=(new Date(c.date)-new Date(c.start))/864e5;
+  if(c.amount>100000)s+=30;else if(c.amount>50000)s+=20;else if(c.amount>20000)s+=10;   // large claim
+  if(days<30)s+=25;else if(days<90)s+=15;                                              // claim soon after policy start
+  if(c.pc>=3)s+=20;else if(c.pc==2)s+=10;else if(c.pc==1)s+=5;                         // claim frequency
+  if(c.pa>50000)s+=15;else if(c.pa>20000)s+=8;                                         // past claim total
+  if(c.pa>0&&c.amount>c.pa*1.5)s+=10;                                                  // amount spike vs history
+  if(/Theft|Fire/.test(c.type))s+=5;                                                   // higher-risk type
+  return Math.min(100,s);
+}
+const level=s=>s<=30?'Low':s<=60?'Medium':'High';
+const prio=s=>({High:'P1 – Urgent',Medium:'P2 – Normal',Low:'P3 – Standard'})[level(s)];
+const msg={Low:'Claim appears normal and can proceed for standard review.',Medium:'Claim requires additional verification.',High:'High-risk claim detected. Prioritize for manual investigation.'};
+const col={Low:'#16a34a',Medium:'#d97706',High:'#dc2626'};
+const inr=n=>'₹'+Number(n).toLocaleString('en-IN');
+const badge=s=>`<span class="badge ${level(s)}">${level(s)}</span>`;
+
+/* ===== NAVIGATION ===== */
+function start(){document.getElementById('welcome').classList.add('hide');document.getElementById('app').style.display='block';renderAll()}
+function go(id){document.querySelectorAll('section').forEach(s=>s.classList.toggle('on',s.id===id));
+  document.querySelectorAll('.side a').forEach(a=>a.classList.toggle('on',a.dataset.s===id));
+  document.querySelector('.side').classList.remove('open');window.scrollTo(0,0)}
+document.querySelectorAll('.side a').forEach(a=>a.onclick=()=>go(a.dataset.s));
+
+/* ===== DASHBOARD CARDS ===== */
+function renderStats(){
+  const n=claims.length,hi=claims.filter(c=>level(c.score)=='High').length,lo=claims.filter(c=>level(c.score)=='Low').length;
+  const pend=claims.filter(c=>c.status!='Reviewed').length;
+  const cards=[['Total Policies',new Set(claims.map(c=>c.pol)).size,'fa-file-shield','#1d4ed8'],['Total Claims',n,'fa-file-invoice-dollar','#0891b2'],
+   ['Pending Reviews',pend,'fa-hourglass-half','#d97706'],['High Risk Claims',hi,'fa-triangle-exclamation','#dc2626'],
+   ['Genuine Claims',lo,'fa-circle-check','#16a34a'],['Fraud Risk %',(n?Math.round(hi/n*100):0)+'%','fa-percent','#7c3aed']];
+  document.getElementById('stats').innerHTML=cards.map(c=>`<div class="card stat"><div class="ic" style="background:${c[3]}"><i class="fa-solid ${c[2]}"></i></div><div><h3>${c[1]}</h3><small>${c[0]}</small></div></div>`).join('');
+}
+
+/* ===== CHARTS (Chart.js) ===== */
+let charts=[];
+function renderCharts(){
+  charts.forEach(c=>c.destroy());
+  const cnt=k=>['Low','Medium','High'].map(l=>claims.filter(c=>level(c.score)==l).length);
+  const sts=['Pending Review','Under Investigation','Reviewed'];
+  charts=[
+   new Chart(c1,{type:'doughnut',data:{labels:['Low','Medium','High'],datasets:[{data:cnt(),backgroundColor:['#16a34a','#d97706','#dc2626']}]}}),
+   new Chart(c2,{type:'bar',data:{labels:sts,datasets:[{label:'Claims',data:sts.map(s=>claims.filter(c=>c.status==s).length),backgroundColor:'#1d4ed8'}]},options:{scales:{y:{beginAtZero:true,ticks:{precision:0}}}}}),
+   new Chart(c3,{type:'bar',data:{labels:claims.map(c=>c.id),datasets:[{label:'Claim Amount',data:claims.map(c=>c.amount),backgroundColor:'#3b82f6'},{label:'Previous Claim Amount',data:claims.map(c=>c.pa),backgroundColor:'#94a3b8'}]}})
+  ];
+}
+
+/* ===== CONNECTED TABLE (joins holder + policy + claim, with search/filter) ===== */
+function renderTable(){
+  const v=id=>document.getElementById(id).value.trim().toLowerCase();
+  const rows=claims.filter(c=>c.ph.toLowerCase().includes(v('sH'))&&c.pol.toLowerCase().includes(v('sP'))&&c.id.toLowerCase().includes(v('sC'))
+    &&(!v('fR')||level(c.score).toLowerCase()==v('fR'))&&(!v('fSt')||c.status.toLowerCase()==v('fSt')));
+  tbl.innerHTML=rows.map(c=>`<tr style="cursor:pointer" onclick="openHistory('${c.ph}')"><td>${c.name}<br><small>${c.ph}</small></td><td>${c.pol}</td><td>${c.id}</td><td>${inr(c.amount)}</td><td>${c.pc}</td><td>${c.score} ${badge(c.score)}</td><td><span class="badge st">${c.status}</span></td><td style="white-space:nowrap"><button class="sm r" onclick="event.stopPropagation();editClaim('${c.id}')"><i class="fa-solid fa-pen"></i> Edit</button><button class="sm d" onclick="event.stopPropagation();deleteClaim('${c.id}')"><i class="fa-solid fa-trash"></i></button></td></tr>`).join('')||'<tr><td colspan="8">No records yet. Use "Submit Claim" to enter real data.</td></tr>';
+}
+
+/* ===== PREVIOUS CLAIM HISTORY ===== */
+function openHistory(id){hSel.value=id;renderHistory();go('history')}
+function renderHistory(){
+  const id=hSel.value,p=holders[id];if(!p){hOut.innerHTML='<div class="card">No policyholders yet. Submit a claim to create one.</div>';return}
+  const tot=p.h.reduce((s,x)=>s+x.a,0);
+  hOut.innerHTML=`<div class="grid g3"><div class="card stat"><div class="ic" style="background:#1d4ed8"><i class="fa-solid fa-hashtag"></i></div><div><h3>${p.h.length}</h3><small>Previous Claims</small></div></div>
+  <div class="card stat"><div class="ic" style="background:#0891b2"><i class="fa-solid fa-indian-rupee-sign"></i></div><div><h3>${inr(tot)}</h3><small>Total Previous Amount</small></div></div></div>
+  <div class="card tw"><h3>${p.name} (${id})</h3><table><thead><tr><th>Date</th><th>Claim Type</th><th>Amount</th><th>Risk Score</th><th></th></tr></thead><tbody>
+  ${p.h.map((x,i)=>`<tr><td>${x.d}</td><td>${x.t}</td><td>${inr(x.a)}</td><td>${x.s} ${badge(x.s)}</td><td><button class="sm d" onclick="delHist(${i})"><i class="fa-solid fa-trash"></i></button></td></tr>`).join('')||'<tr><td colspan="5">No previous claims on record.</td></tr>'}</tbody></table></div>`;
+}
+
+/* ===== REVIEW QUEUE: sorted by risk score (High → Low) ===== */
+function renderQueue(){
+  const q=claims.filter(c=>c.status!='Reviewed').sort((a,b)=>b.score-a.score);
+  qTbl.innerHTML=q.map(c=>`<tr><td>${c.id}</td><td>${c.name}</td><td>${inr(c.amount)}</td><td>${c.score}</td><td>${badge(c.score)}</td><td>${prio(c.score)}</td>
+  <td><button class="sm v" onclick="viewClaim('${c.id}')">View</button><button class="sm r" onclick="setStatus('${c.id}','Under Investigation')">Review</button><button class="sm m" onclick="setStatus('${c.id}','Reviewed')">Mark as Reviewed</button></td></tr>`).join('')||'<tr><td colspan="7">Queue is empty 🎉</td></tr>';
+}
+function setStatus(id,s){claims.find(c=>c.id==id).status=s;renderAll()}
+function viewClaim(id){const c=claims.find(x=>x.id==id);
+  mBody.innerHTML=`<h3>${c.id} ${badge(c.score)}</h3><p style="margin:10px 0;line-height:1.8"><b>Holder:</b> ${c.name} (${c.ph})<br><b>Policy:</b> ${c.pol}<br><b>Type:</b> ${c.type}<br><b>Amount:</b> ${inr(c.amount)}<br><b>Claim date:</b> ${c.date}<br><b>Policy start:</b> ${c.start}<br><b>Previous claims:</b> ${c.pc} (${inr(c.pa)})<br><b>Score:</b> ${c.score} — ${msg[level(c.score)]}</p><button class="btn" onclick="modal.style.display='none'">Close</button>`;
+  modal.style.display='grid'}
+
+/* ===== FORM SUBMIT → CALCULATE SCORE → SHOW ANALYSIS ===== */
+form.onsubmit=e=>{
+  e.preventDefault();
+  const c={id:fC.value.trim(),ph:fH.value.trim().toUpperCase(),name:fN.value.trim(),pol:fP.value.trim(),type:fT.value,amount:+fA.value,date:fD.value,start:fS.value,pc:+fPC.value,pa:+fPA.value};
+  if(claims.some(x=>x.id==c.id&&x.id!==editing)){alert('Claim ID already exists.');return}
+  c.score=score(c);const L=level(c.score);
+  c.status=L=='High'?'Under Investigation':'Pending Review';
+  const old=editing&&claims.find(x=>x.id==editing);
+  if(old){c.status=old.status;removeHist(old);claims[claims.indexOf(old)]=c}else claims.push(c);
+  if(!holders[c.ph])holders[c.ph]={name:c.name,h:[]};
+  holders[c.ph].name=c.name;claims.forEach(x=>{if(x.ph==c.ph)x.name=c.name});
+  holders[c.ph].h.push({d:c.date,t:c.type,a:c.amount,s:c.score,cid:c.id});   // add to history
+  renderAll();
+  result.innerHTML=`<h3>${c.id} — ${c.name}</h3><div class="gauge" style="color:${col[L]}">${c.score}<small style="font-size:20px">/100</small></div>
+  <div class="bar"><div style="width:${c.score}%;background:${col[L]}"></div></div>
+  <div class="grid g3"><div><small>Risk Level</small><br>${badge(c.score)}</div><div><small>Claim Status</small><br><span class="badge st">${c.status}</span></div><div><small>Review Priority</small><br><b>${prio(c.score)}</b></div></div>
+  <p style="margin-top:16px;font-size:16px"><i class="fa-solid fa-circle-info" style="color:${col[L]}"></i> ${msg[L]}</p>
+  <div class="note"><b>Demo notice:</b> This is a rule-based demo risk score for academic purposes. It is <b>not</b> a real fraud determination.</div>`;
+  cancelEdit();go('analysis');
+};
+
+/* ===== EDITING & REAL-DATA TOOLS ===== */
+let editing=null;   // Claim ID currently being edited (null = adding a new claim)
+function editClaim(id){
+  const c=claims.find(x=>x.id==id);if(!c)return;
+  editing=id;
+  fH.value=c.ph;fN.value=c.name;fP.value=c.pol;fC.value=c.id;fT.value=c.type;fA.value=c.amount;
+  fD.value=c.date;fS.value=c.start;fPC.value=c.pc;fPA.value=c.pa;
+  fBtn.innerHTML='<i class="fa-solid fa-floppy-disk"></i> Save Changes &amp; Re-analyze';
+  fCancel.style.display='block';go('submit');
+}
+function cancelEdit(){
+  editing=null;form.reset();
+  fBtn.innerHTML='<i class="fa-solid fa-bolt"></i> Submit &amp; Analyze Claim';
+  fCancel.style.display='none';
+}
+function removeHist(c){const p=holders[c.ph];if(p)p.h=p.h.filter(x=>x.cid!==c.id)}   // drop history entry created by this claim
+function deleteClaim(id){
+  if(!confirm('Delete claim '+id+'?'))return;
+  const c=claims.find(x=>x.id==id);if(c)removeHist(c);
+  claims=claims.filter(x=>x.id!=id);renderAll();
+}
+function fillHolder(){   // auto-fill from an existing policyholder
+  if(editing)return;
+  const p=holders[fH.value.trim().toUpperCase()];
+  if(p){fN.value=p.name;fPC.value=p.h.length;fPA.value=p.h.reduce((s,x)=>s+x.a,0)}
+}
+function addHist(){
+  const id=hSel.value;
+  if(!id||!hD.value||!hA.value){alert('Select a policyholder and enter a date and amount.');return}
+  holders[id].h.push({d:hD.value,t:hT.value,a:+hA.value,s:+hS.value||0});
+  hD.value=hA.value=hS.value='';renderAll();
+}
+function delHist(i){holders[hSel.value].h.splice(i,1);renderAll()}
+function clearAll(){
+  if(!confirm('Remove ALL demo data so you can enter your own records?'))return;
+  holders={};claims=[];cancelEdit();renderAll();
+}
+function restoreDemo(){
+  if(!confirm('Replace current data with the original demo data?'))return;
+  const d=JSON.parse(DEMO);holders=d.holders;claims=d.claims;renderAll();
+}
+function exportCSV(){
+  const head=['Claim ID','Policyholder ID','Name','Policy','Type','Amount','Claim Date','Policy Start','Prev Count','Prev Amount','Score','Level','Status'];
+  const rows=claims.map(c=>[c.id,c.ph,c.name,c.pol,c.type,c.amount,c.date,c.start,c.pc,c.pa,c.score,level(c.score),c.status]);
+  const csv=[head,...rows].map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n');
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='claims.csv';a.click();
+}
+
+/* ===== INITIAL RENDER ===== */
+function renderAll(){
+  save();renderStats();renderTable();renderQueue();renderCharts();
+  const cur=hSel.value;hSel.innerHTML=Object.keys(holders).map(k=>`<option value="${k}">${k} – ${holders[k].name}</option>`).join('');
+  if(cur)hSel.value=cur;renderHistory();
+}
+</script>
+</body>
+</html>
